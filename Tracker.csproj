@@ -2,13 +2,15 @@
   <PropertyGroup>
     <TargetFramework>$(ServerFramework)</TargetFramework>
     <AssemblyName>Dreamstreaming.SubtitleTracker</AssemblyName>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <NuGetAudit>false</NuGetAudit>
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <Reference Include="MediaBrowser.Common"><HintPath>$(ServerDir)/MediaBrowser.Common.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MediaBrowser.Model"><HintPath>$(ServerDir)/MediaBrowser.Model.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="MediaBrowser.Controller"><HintPath>$(ServerDir)/MediaBrowser.Controller.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Jellyfin.Data"><HintPath>$(ServerDir)/Jellyfin.Data.dll</HintPath><Private>false</Private></Reference>
     <EmbeddedResource Include="admin.html" LogicalName="Tracker.admin.html" />
   </ItemGroup>
 </Project>

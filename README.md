@@ -31,7 +31,15 @@ The plugin controls are currently in Dutch. The default view lists titles with m
 
 Any language counts. For example, a movie with only a German subtitle track appears under **Ja**. Jellyfin can index embedded tracks and external files such as SRT subtitles. Burned-in captions are part of the video image and do not count as a separate track.
 
-Subtitle downloads stay with your existing subtitle provider. The tracker reads Jellyfin’s index without recording watch history. If a newly downloaded track is missing, check the title’s media information, rescan its library if needed, and click **Vernieuwen**.
+The coverage page reads indexed tracks. The separate scheduled task below delegates downloads to Wyzie. The tracker reads Jellyfin’s index without recording watch history. If a newly downloaded track is missing, check the title’s media information, rescan its library if needed, and click **Vernieuwen**.
+
+## 🔄 Automatic English subtitles with Wyzie
+
+Enable Wyzie Subs and select English as a download language for each relevant library. After installing the update and restarting Jellyfin, open **Dashboard → Scheduled Tasks → Dreamstreaming → Find missing English subtitles (Wyzie)**. Run it manually or adjust its default daily 03:00 trigger. Avoid overlapping it with Jellyfin’s built-in subtitle task.
+
+Each run checks local movie and episode files, including titles with English audio or subtitles in other languages. A full indexed English track (including SDH) skips the search; a forced-only English track does not. The task allows non-hash-matched results and uses Wyzie’s automated search mode. Check timing if a different release was matched.
+
+A run searches at most 100 eligible titles, not 100 API requests. Wyzie applies its own quota. A persistent cursor rotates through the library, including past previously unmatched items; unknown or empty results do not prove no subtitles exist. The server log records the summary and successful downloads. The coverage page still reports any language.
 
 ## 🧰 Manual installation
 
