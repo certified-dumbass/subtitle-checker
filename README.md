@@ -18,6 +18,22 @@ Find movies and episodes with missing subtitles in Jellyfin Server 12.4. After y
 
 Catalog installation requires no API key or development tools.
 
+## 🔎 Search movies, series and collections
+
+The dashboard now supports a **live search box** (300 ms debounce), so you can jump to a title instead of paging through your entire library.
+
+| Type | Search behavior |
+| --- | --- |
+| **Alles (titels)** | Search movie and episode titles (original default list). |
+| **Films** | Search individual movies. |
+| **Afleveringen** | Search individual episode titles. |
+| **Series** | Search by *series name*, then click a series to inspect its episodes. |
+| **Collecties** | Search by *collection name*, then click a collection to inspect its movies. |
+
+**Ondertiteling: Nee / Ja** still filters movies and episodes based on whether Jellyfin has indexed any subtitle track. For **Series** and **Collecties**, the matching names appear first regardless of subtitle status; click one to see only its matching episodes or movies. Within an opened group, the page also shows counts of titles **with and without** subtitles, and a **Terug naar zoekresultaten** button returns to the previous results page.
+
+Search and paging use Jellyfin's own item index and respect the libraries visible to the signed-in account. No whole-library browser download or custom API key is needed. Searches for an entire series or collection are available through the corresponding **Type** choice, not the default mixed-title search.
+
 ## 🔎 Check subtitle coverage
 
 The plugin controls are currently in Dutch. The default view lists titles with missing subtitles.
@@ -25,8 +41,8 @@ The plugin controls are currently in Dutch. The default view lists titles with m
 | Control | What it does |
 | --- | --- |
 | **Ondertiteling** | Select **Nee** (No) for titles with zero indexed subtitle tracks or **Ja** (Yes) for titles with one or more. |
-| **Type** | Choose **Films** (Movies), **Afleveringen** (Episodes), or **Alles** (Both). Episode rows include the series name and available season and episode numbers. |
-| **Vorige / Volgende** | Move through results in pages of up to 50, ordered by sort title. The counter shows the visible range and the total for your filters. |
+| **Type** | Choose **Films** (Movies), **Afleveringen** (Episodes), **Series**, **Collecties**, or **Alles (titels)** (Movies and Episodes). Episode rows include the series name and available season and episode numbers. |
+| **Zoeken / Wissen** | Search by title or group name; clear your query in one click. |\n| **Series / Collecties** | Select a matching series or collection to inspect its episodes/movies and see total counts with and without subtitles. |\n| **Vorige / Volgende** | Move through results in pages of up to 50, ordered by sort title. The counter shows the visible range and the total for your filters. |
 | **Vernieuwen** | Refresh the results from Jellyfin’s index for the libraries your account can access. |
 
 Any language counts. For example, a movie with only a German subtitle track appears under **Ja**. Jellyfin can index embedded tracks and external files such as SRT subtitles. Burned-in captions are part of the video image and do not count as a separate track.

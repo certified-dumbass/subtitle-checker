@@ -1,58 +1,205 @@
 <div id="dsSubtitleTracker" data-role="page" class="page type-interior pluginConfigurationPage">
  <div data-role="content"><div class="content-primary">
+  <style>
+   #dsSubtitleTracker .tracker-controls { display:flex; flex-wrap:wrap; align-items:end; gap:12px; margin:16px 0; }
+   #dsSubtitleTracker .tracker-controls label { display:flex; flex:1 1 180px; flex-direction:column; gap:6px; }
+   #dsSubtitleTracker .tracker-controls .search-label { flex:2 1 260px; }
+   #dsSubtitleTracker .tracker-controls input, #dsSubtitleTracker .tracker-controls select { width:100%; box-sizing:border-box; min-height:42px; }
+   #dsSubtitleTracker .tracker-controls button { min-height:42px; }
+   #dsSubtitleTracker .tracker-help { opacity:.85; margin:8px 0 20px; }
+   #dsSubtitleTracker .group-navigation { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin:12px 0; }
+   #dsSubtitleTracker .group-navigation[hidden] { display:none; }
+   #dsSubtitleTracker .group-title { font-weight:700; }
+   #dsSubtitleTracker .tracker-results { margin:12px 0; padding-left:28px; }
+   #dsSubtitleTracker .tracker-results li { padding:7px 0; overflow-wrap:anywhere; }
+   #dsSubtitleTracker .group-link { appearance:none; background:none; color:inherit; border:0; padding:4px 0; text-decoration:underline; cursor:pointer; text-align:left; font:inherit; }
+   #dsSubtitleTracker .group-link:hover, #dsSubtitleTracker .group-link:focus-visible { color:var(--theme-primary-color, #7dcacf); }
+   #dsSubtitleTracker .group-hint { display:block; opacity:.72; font-size:.9em; }
+   #dsSubtitleTracker .tracker-pagination { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-top:14px; }
+   #dsSubtitleTracker .tracker-summary { opacity:.9; margin:8px 0; }
+  </style>
   <h1>Subtitle Tracker</h1>
-  <label>Ondertiteling <select class="filter-status"><option value="false">Nee</option><option value="true">Ja</option></select></label>
-  <label>Type <select class="filter-type"><option value="Movie,Episode">Alles</option><option value="Movie">Films</option><option value="Episode">Afleveringen</option></select></label>
-  <button type="button" class="reload">Vernieuwen</button>
-  <p role="status"></p><ol></ol>
-  <button type="button" class="prev">Vorige</button> <button type="button" class="next">Volgende</button>
+  <div class="tracker-controls">
+   <label class="search-label">Zoeken
+    <input class="filter-search" type="search" placeholder="Zoek een film, serie of collectie…" autocomplete="off" aria-label="Zoek op titel" />
+   </label>
+   <label>Ondertiteling
+    <select class="filter-status"><option value="false">Nee</option><option value="true">Ja</option></select>
+   </label>
+   <label>Type
+    <select class="filter-type">
+     <option value="Movie,Episode">Alles (titels)</option>
+     <option value="Movie">Films</option>
+     <option value="Episode">Afleveringen</option>
+     <option value="Series">Series</option>
+     <option value="BoxSet">Collecties</option>
+    </select>
+   </label>
+   <button type="button" class="clear-search">Wissen</button>
+   <button type="button" class="reload">Vernieuwen</button>
+  </div>
+  <p class="tracker-help">Zoek op titel. Kies <strong>Series</strong> of <strong>Collecties</strong> om op naam te zoeken en de ondertitelstatus van alle bijbehorende afleveringen of films te bekijken.</p>
+  <div class="group-navigation" hidden>
+   <button type="button" class="back">← Terug naar zoekresultaten</button>
+   <span class="group-title"></span>
+  </div>
+  <p role="status" aria-live="polite"></p>
+  <p class="tracker-summary" aria-live="polite"></p>
+  <ol class="tracker-results"></ol>
+  <div class="tracker-pagination">
+   <button type="button" class="prev">Vorige</button>
+   <button type="button" class="next">Volgende</button>
+  </div>
  </div></div>
  <script>
  (function () {
   var page = document.getElementById('dsSubtitleTracker');
-  if (page.dataset.ready) return;
+  if (!page || page.dataset.ready) return;
   page.dataset.ready = '1';
-  var get = function (s) { return page.querySelector(s); };
-  var offset = 0, generation = 0, limit = 50;
+
+  var get = function (selector) { return page.querySelector(selector); };
+  var offset = 0, groupOffset = 0, generation = 0, limit = 50;
+  var selectedGroup = null, searchTimer = null;
+
+  function isGroupMode(mode) { return mode === 'Series' || mode === 'BoxSet'; }
+  function itemType(mode) {
+   return mode === 'Series' ? 'Episode' : mode === 'BoxSet' ? 'Movie' : mode;
+  }
+  function noun(mode) { return mode === 'Series' ? 'series' : 'collecties'; }
+  function queryOptions(mode, hasSubtitles) {
+   var options = {
+    Recursive: true, IncludeItemTypes: mode, IsMissing: false,
+    SortBy: 'SortName', SortOrder: 'Ascending', StartIndex: offset,
+    Limit: limit, EnableTotalRecordCount: true
+   };
+   if (hasSubtitles !== null) options.HasSubtitles = hasSubtitles;
+   if (selectedGroup) {
+    options.ParentId = selectedGroup.id;
+   } else {
+    var search = get('.filter-search').value.trim();
+    if (search) options.SearchTerm = search;
+   }
+   return options;
+  }
+  function setButtons(disabled) {
+   get('.prev').disabled = disabled;
+   get('.next').disabled = disabled;
+  }
   async function load() {
    var current = ++generation;
+   var userId = ApiClient.getCurrentUserId();
    var has = get('.filter-status').value;
-   var list = get('ol'), status = get('[role=status]');
+   var mode = get('.filter-type').value;
+   var grouping = isGroupMode(mode) && !selectedGroup;
+   var contentsType = selectedGroup ? itemType(selectedGroup.type) : mode;
+   var list = get('.tracker-results');
+   var status = get('[role=status]');
+   var summary = get('.tracker-summary');
    list.replaceChildren();
-   get('.prev').disabled = get('.next').disabled = true;
+   summary.textContent = '';
+   setButtons(true);
    status.textContent = 'Laden…';
+   get('.group-navigation').hidden = !selectedGroup;
+   get('.group-title').textContent = selectedGroup ? (selectedGroup.type === 'Series' ? 'Serie: ' : 'Collectie: ') + selectedGroup.name : '';
    try {
-    var data = await ApiClient.getItems(ApiClient.getCurrentUserId(), {
-     Recursive: true, IncludeItemTypes: get('.filter-type').value, HasSubtitles: has,
-     IsMissing: false, SortBy: 'SortName', SortOrder: 'Ascending',
-     StartIndex: offset, Limit: limit, EnableTotalRecordCount: true
-    });
+    var opts = queryOptions(contentsType, grouping ? null : has);
+    var data = await ApiClient.getItems(userId, opts);
     if (current !== generation) return;
-    var total = data.TotalRecordCount;
-    if (offset && offset >= total) { offset = 0; return load(); }
+    var total = Number(data.TotalRecordCount) || 0;
+    var items = data.Items || [];
+    if (offset && offset >= total) {
+     offset = total ? Math.floor((total - 1) / limit) * limit : 0;
+     return load();
+    }
     list.start = offset + 1;
-    for (var item of data.Items) {
+    for (var item of items) {
      var row = document.createElement('li');
-     var prefix = item.Type === 'Episode' ? [item.SeriesName,
-       item.ParentIndexNumber == null ? '' : 'S' + item.ParentIndexNumber,
-       item.IndexNumber == null ? '' : 'E' + item.IndexNumber].filter(Boolean).join(' ') : '';
-     row.textContent = [prefix, item.Name].filter(Boolean).join(' — ') + ' · ' + (has === 'true' ? 'Ja' : 'Nee');
+     if (grouping) {
+      var link = document.createElement('button');
+      link.type = 'button';
+      link.className = 'group-link';
+      link.textContent = item.Name || '(zonder naam)';
+      link.onclick = (function (group) {
+       return function () {
+        selectedGroup = { id: group.Id, name: group.Name || '(zonder naam)', type: mode };
+        groupOffset = offset;
+        offset = 0;
+        load();
+       };
+      })(item);
+      var hint = document.createElement('small');
+      hint.className = 'group-hint';
+      hint.textContent = mode === 'Series' ? 'Klik om afleveringen te controleren' : 'Klik om films te controleren';
+      row.appendChild(link);
+      row.appendChild(hint);
+     } else {
+      var prefix = item.Type === 'Episode'
+       ? [item.SeriesName, item.ParentIndexNumber == null ? '' : 'S' + item.ParentIndexNumber,
+          item.IndexNumber == null ? '' : 'E' + item.IndexNumber].filter(Boolean).join(' ')
+       : '';
+      row.textContent = [prefix, item.Name].filter(Boolean).join(' — ') + ' · ' + (has === 'true' ? 'Ja' : 'Nee');
+     }
      list.appendChild(row);
     }
-    status.textContent = total ? (offset + 1) + '–' + (offset + data.Items.length) + ' van ' + total : 'Geen titels gevonden.';
+    var empty = selectedGroup ? 'Geen bijbehorende titels met deze ondertitelstatus.' :
+     grouping ? 'Geen ' + noun(mode) + ' gevonden.' : 'Geen titels gevonden.';
+    status.textContent = total
+     ? (offset + 1) + '–' + (offset + items.length) + ' van ' + total +
+       (grouping ? ' ' + noun(mode) : ' titels')
+     : empty;
     get('.prev').disabled = offset === 0;
     get('.next').disabled = offset + limit >= total;
+
+    // Fetch only one extra count when a series or collection has been opened.
+    if (selectedGroup) {
+     var other = queryOptions(contentsType, has === 'true' ? 'false' : 'true');
+     other.StartIndex = 0;
+     other.Limit = 1;
+     var otherData = await ApiClient.getItems(userId, other);
+     if (current !== generation) return;
+     var otherTotal = Number(otherData.TotalRecordCount) || 0;
+     summary.textContent = has === 'true'
+      ? 'Met ondertiteling: ' + total + ' · Zonder ondertiteling: ' + otherTotal
+      : 'Zonder ondertiteling: ' + total + ' · Met ondertiteling: ' + otherTotal;
+    }
    } catch (error) {
-    if (current === generation) status.textContent = 'Ophalen mislukt. Probeer Vernieuwen. ' + error.message;
+    if (current === generation) status.textContent = 'Ophalen mislukt. Probeer Vernieuwen. ' + (error.message || error);
    }
   }
-  function reset() { offset = 0; load(); }
-  page.addEventListener('pageshow', reset);
-  page.querySelectorAll('select').forEach(function (s) { s.onchange = reset; });
-  get('.reload').onclick = reset;
+  function reset(clearGroup) {
+   if (clearGroup) selectedGroup = null;
+   offset = 0;
+   load();
+  }
+  get('.filter-search').addEventListener('input', function () {
+   clearTimeout(searchTimer);
+   searchTimer = setTimeout(function () { reset(true); }, 300);
+  });
+  get('.filter-search').addEventListener('keydown', function (event) {
+   if (event.key === 'Enter') {
+    event.preventDefault();
+    clearTimeout(searchTimer);
+    reset(true);
+   }
+  });
+  get('.filter-type').onchange = function () { reset(true); };
+  get('.filter-status').onchange = function () { reset(false); };
+  get('.clear-search').onclick = function () {
+   get('.filter-search').value = '';
+   clearTimeout(searchTimer);
+   reset(true);
+   get('.filter-search').focus();
+  };
+  get('.reload').onclick = function () { load(); };
+  get('.back').onclick = function () {
+   selectedGroup = null;
+   offset = groupOffset;
+   load();
+  };
   get('.next').onclick = function () { offset += limit; load(); };
-  get('.prev').onclick = function () { offset = Math.max(0, offset-limit); load(); };
-  reset();
+  get('.prev').onclick = function () { offset = Math.max(0, offset - limit); load(); };
+  page.addEventListener('pageshow', function () { reset(true); });
+  load();
  })();
  </script>
 </div>
