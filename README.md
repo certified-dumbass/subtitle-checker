@@ -1,40 +1,52 @@
+<p align="center"><img src="assets/subtitle-tracker.png" width="144" alt="Subtitle Tracker logo: a caption bubble with a check mark"></p>
+
 # Dreamstreaming Subtitle Tracker
 
-Een beheerpagina voor Jellyfin Server 12.4 die laat zien welke films en afleveringen al een ondertiteltrack hebben. Handig om na de dagelijkse Wyzie Subs-taak te zien welke titels nog ondertiteling missen.
+Find movies and episodes with missing subtitles in Jellyfin Server 12.4. After your daily Wyzie Subs task runs, open the tracker to see which titles still need a subtitle track.
 
-## Installeren via de Jellyfin-catalogus
+## 📦 Install from the Jellyfin catalog
 
-1. Open als beheerder **Dashboard → Plugins → Repositories** en voeg een repository toe.
-2. Geef deze de naam **Dreamstreaming** en gebruik deze manifest-URL:
+1. Sign in as an administrator and open **Dashboard → Plugins → Repositories**.
+2. Add a repository named **Dreamstreaming** and paste the following URL into **Repository URL**:
 
-   `https://github.com/certified-dumbass/subtitle-checker/releases/latest/download/manifest.json`
+   ```text
+   https://github.com/certified-dumbass/subtitle-checker/releases/latest/download/manifest.json
+   ```
 
-3. Sla op, open **Catalogus**, zoek **Dreamstreaming Subtitle Tracker** en kies **Installeren**.
-4. Herstart Jellyfin op een geschikt moment. Open de plugin via het dashboard.
+3. Save, open **Catalog**, select **Dreamstreaming Subtitle Tracker**, and click **Install**.
+4. Restart Jellyfin when convenient, then open the tracker from the dashboard.
 
-De manifest-URL wordt actief zodra de eerste release succesvol is gepubliceerd. Je hebt bij deze installatiemethode geen API-sleutel of ontwikkeltools nodig.
+Catalog installation requires no API key or development tools.
 
-## Functies en bediening
+## 🔎 Check subtitle coverage
 
-- **Ondertiteling → Nee** toont ontbrekende ondertitels en is de standaardweergave. Kies **Ja** voor titels met minstens één door Jellyfin herkende ondertiteltrack.
-- **Type** filtert op films, afleveringen of beide. Bij afleveringen zie je ook de serie en de beschikbare seizoen- en afleveringsnummers.
-- De lijst is op sorteertitel geordend. Je ziet het totaal voor je selectie en bladert met **Vorige** en **Volgende** door maximaal 50 titels per pagina.
-- **Vernieuwen** haalt de huidige status op binnen de bibliotheken van het ingelogde account.
+The plugin controls are currently in Dutch. The default view lists titles with missing subtitles.
 
-Elke taal telt mee, ook een herkende externe SRT of ingebouwde ondertiteltrack. Ingebrande tekst in het beeld heeft geen aparte track. De plugin leest de Jellyfin-index en bewaart geen kijkgeschiedenis. Downloads lopen via je bestaande ondertitelplugin. Verschijnt een nieuwe track nog niet, controleer dan eerst de media-informatie van de titel en laat Jellyfin indien nodig de bibliotheek opnieuw scannen.
+| Control | What it does |
+| --- | --- |
+| **Ondertiteling** | Select **Nee** (No) for titles with zero indexed subtitle tracks or **Ja** (Yes) for titles with one or more. |
+| **Type** | Choose **Films** (Movies), **Afleveringen** (Episodes), or **Alles** (Both). Episode rows include the series name and available season and episode numbers. |
+| **Vorige / Volgende** | Move through results in pages of up to 50, ordered by sort title. The counter shows the visible range and the total for your filters. |
+| **Vernieuwen** | Refresh the results from Jellyfin’s index for the libraries your account can access. |
 
-## Handmatig installeren of bouwen
+Any language counts. For example, a movie with only a German subtitle track appears under **Ja**. Jellyfin can index embedded tracks and external files such as SRT subtitles. Burned-in captions are part of the video image and do not count as a separate track.
 
-Download de plugin-zip van **Releases**, pak de DLL uit in een eigen map onder de plugins-map van je Jellyfin-datamap en herstart Jellyfin. Verwijderen kan via het plugindashboard.
+Subtitle downloads stay with your existing subtitle provider. The tracker reads Jellyfin’s index without recording watch history. If a newly downloaded track is missing, check the title’s media information, rescan its library if needed, and click **Vernieuwen**.
 
-Voor een eigen Windows-build gebruik je de broncode en de .NET SDK voor het framework uit `jellyfin.runtimeconfig.json`. Open PowerShell in de uitgepakte bronmap:
+## 🧰 Manual installation
+
+Download the plugin ZIP from [Releases](https://github.com/certified-dumbass/subtitle-checker/releases/latest), extract the DLL into its own folder inside the `plugins` directory of your Jellyfin data folder, and restart Jellyfin. To uninstall, use the plugin dashboard.
+
+## 🛠️ Build on Windows
+
+Install the .NET SDK matching the target framework in your server’s `jellyfin.runtimeconfig.json`. Open PowerShell in the extracted source directory and run:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\Build.ps1
 ```
 
-Bij een afwijkend installatiepad voeg je `-ServerDir "D:\Jellyfin\Server"` toe. De DLL staat daarna in `output`.
+For a custom server location, append `-ServerDir "D:\Jellyfin\Server"`. The compiled DLL is written to `output\`.
 
-## Releasebouw
+## 🚀 Publish a release
 
-De GitHub Actions-workflow bouwt tegen de assemblies uit de officiële Jellyfin 12.4-container. De release bevat de plugin-zip en een Jellyfin-manifest met de MD5 van diezelfde zip. Voor een nieuwe versie verhoog je de projectversie voordat je naar main pusht.
+The GitHub Actions workflow builds against assemblies from the official Jellyfin 12.4 container. Each release includes the plugin ZIP and a Jellyfin manifest with the ZIP’s MD5 checksum. Bump the version in `Tracker.csproj` before pushing a new plugin version to `main`.
