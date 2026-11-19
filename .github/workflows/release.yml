@@ -1,0 +1,42 @@
+name: Build and publish Jellyfin plugin
+on:
+  push:
+    branches: [main]
+    paths: ['Plugin.cs', 'Tracker.csproj', 'admin.html', '.github/workflows/release.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: subtitle-tracker-release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read Jellyfin 12.4 assemblies
+        run: |
+          id=$(docker create jellyfin/jellyfin:12.4)
+          mkdir -p "$RUNNER_TEMP/server"
+          docker cp "$id:/jellyfin/." "$RUNNER_TEMP/server"
+          docker rm "$id"
+          tfm=$(jq -er '.runtimeOptions.tfm' "$RUNNER_TEMP/server/jellyfin.runtimeconfig.json")
+          echo "TFM=$tfm" >> "$GITHUB_ENV"
+          echo "SDK=${tfm#net}.x" >> "$GITHUB_ENV"
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.SDK }}
+      - name: Build and package
+        run: |
+          dotnet build Tracker.csproj -c Release -p:ServerDir="$RUNNER_TEMP/server" -p:ServerFramework="$TFM" -o "$RUNNER_TEMP/build"
+          version=$(sed -n 's@.*<Version>\(.*\)</Version>.*@\1@p' Tracker.csproj)
+          tag="v$version"
+          asset="Dreamstreaming.SubtitleTracker-$version.zip"
+          zip -j "$asset" "$RUNNER_TEMP/build/Dreamstreaming.SubtitleTracker.dll"
+          jq -n --arg sha "$(md5sum "$asset" | cut -d' ' -f1)" --arg url "https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/$asset" --arg v "$version.0" --arg ts "$(date -u +%FT%TZ)" '[{guid:"cb07cc67-f8cf-4a4f-8ac0-bc4242975f19",name:"Dreamstreaming Subtitle Tracker",overview:"Bekijk welke films en afleveringen ondertitels hebben.",description:"Filter de Jellyfin-index op aanwezige en ontbrekende ondertiteltracks.",owner:"certified-dumbass",category:"Metadata",versions:[{version:$v,targetAbi:"12.4.0.0",sourceUrl:$url,checksum:$sha,timestamp:$ts,changelog:"Zie de release op GitHub."}]}]' > manifest.json
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+          echo "ASSET=$asset" >> "$GITHUB_ENV"
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$TAG" "$ASSET" manifest.json --target "$GITHUB_SHA" --title "Subtitle Tracker $TAG" --generate-notes

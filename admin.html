@@ -1,0 +1,58 @@
+<div id="dsSubtitleTracker" data-role="page" class="page type-interior pluginConfigurationPage">
+ <div data-role="content"><div class="content-primary">
+  <h1>Subtitle Tracker</h1>
+  <label>Ondertiteling <select class="filter-status"><option value="false">Nee</option><option value="true">Ja</option></select></label>
+  <label>Type <select class="filter-type"><option value="Movie,Episode">Alles</option><option value="Movie">Films</option><option value="Episode">Afleveringen</option></select></label>
+  <button type="button" class="reload">Vernieuwen</button>
+  <p role="status"></p><ol></ol>
+  <button type="button" class="prev">Vorige</button> <button type="button" class="next">Volgende</button>
+ </div></div>
+ <script>
+ (function () {
+  var page = document.getElementById('dsSubtitleTracker');
+  if (page.dataset.ready) return;
+  page.dataset.ready = '1';
+  var get = function (s) { return page.querySelector(s); };
+  var offset = 0, generation = 0, limit = 50;
+  async function load() {
+   var current = ++generation;
+   var has = get('.filter-status').value;
+   var list = get('ol'), status = get('[role=status]');
+   list.replaceChildren();
+   get('.prev').disabled = get('.next').disabled = true;
+   status.textContent = 'Laden…';
+   try {
+    var data = await ApiClient.getItems(ApiClient.getCurrentUserId(), {
+     Recursive: true, IncludeItemTypes: get('.filter-type').value, HasSubtitles: has,
+     IsMissing: false, SortBy: 'SortName', SortOrder: 'Ascending',
+     StartIndex: offset, Limit: limit, EnableTotalRecordCount: true
+    });
+    if (current !== generation) return;
+    var total = data.TotalRecordCount;
+    if (offset && offset >= total) { offset = 0; return load(); }
+    list.start = offset + 1;
+    for (var item of data.Items) {
+     var row = document.createElement('li');
+     var prefix = item.Type === 'Episode' ? [item.SeriesName,
+       item.ParentIndexNumber == null ? '' : 'S' + item.ParentIndexNumber,
+       item.IndexNumber == null ? '' : 'E' + item.IndexNumber].filter(Boolean).join(' ') : '';
+     row.textContent = [prefix, item.Name].filter(Boolean).join(' — ') + ' · ' + (has === 'true' ? 'Ja' : 'Nee');
+     list.appendChild(row);
+    }
+    status.textContent = total ? (offset + 1) + '–' + (offset + data.Items.length) + ' van ' + total : 'Geen titels gevonden.';
+    get('.prev').disabled = offset === 0;
+    get('.next').disabled = offset + limit >= total;
+   } catch (error) {
+    if (current === generation) status.textContent = 'Ophalen mislukt. Probeer Vernieuwen. ' + error.message;
+   }
+  }
+  function reset() { offset = 0; load(); }
+  page.addEventListener('pageshow', reset);
+  page.querySelectorAll('select').forEach(function (s) { s.onchange = reset; });
+  get('.reload').onclick = reset;
+  get('.next').onclick = function () { offset += limit; load(); };
+  get('.prev').onclick = function () { offset = Math.max(0, offset-limit); load(); };
+  reset();
+ })();
+ </script>
+</div>
